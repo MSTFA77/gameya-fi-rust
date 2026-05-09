@@ -4,20 +4,22 @@ pub mod instructions;
 pub mod state;
 
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 pub use constants::*;
+pub use error::*;
 pub use instructions::*;
 pub use state::*;
 
-use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
-
-// سيتم تحديث هذا الـ ID لاحقاً بعد أول Build
 declare_id!("534KaupWbMj7brydEXfZVGsYoSiDCwxQEbJCyQsrMoLN");
 
 #[program]
-pub mod gameyafi {
+pub mod gameya_fi_rust {
     use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        instructions::initialize::handler(ctx)
+    }
 
     /// 1. Initialize User Reputation
     pub fn init_reputation(ctx: Context<InitReputation>) -> Result<()> {
@@ -73,7 +75,10 @@ pub mod gameyafi {
             authority: ctx.accounts.user.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        token::transfer(CpiContext::new(cpi_program, cpi_accounts), circle.security_deposit)?;
+        token::transfer(
+            CpiContext::new(cpi_program.key(), cpi_accounts),
+            circle.security_deposit,
+        )?;
 
         // Initialize Member Account
         let member = &mut ctx.accounts.circle_member;
@@ -112,7 +117,10 @@ pub mod gameyafi {
             authority: ctx.accounts.user.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        token::transfer(CpiContext::new(cpi_program, cpi_accounts), circle.contribution_amount)?;
+        token::transfer(
+            CpiContext::new(cpi_program.key(), cpi_accounts),
+            circle.contribution_amount,
+        )?;
 
         member.paid_rounds += 1;
         circle.round_payments_count += 1;
@@ -149,7 +157,7 @@ pub mod gameyafi {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         token::transfer(
-            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer),
+            CpiContext::new_with_signer(cpi_program.key(), cpi_accounts, signer),
             payout_amount,
         )?;
 
@@ -193,7 +201,7 @@ pub mod gameyafi {
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         token::transfer(
-            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer),
+            CpiContext::new_with_signer(cpi_program.key(), cpi_accounts, signer),
             amount_to_return,
         )?;
 
@@ -316,90 +324,4 @@ pub struct WithdrawDeposit<'info> {
     #[account(mut, seeds = [b"vault", circle.key().as_ref()], bump = circle.vault_bump)]
     pub vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-}
-
-// ---------------------------------------------------------
-// STATE STRUCTS
-// ---------------------------------------------------------
-
-#[account]
-pub struct UserReputation {
-    pub user: Pubkey,
-    pub score: u32,
-    pub completed_circles: u32,
-    pub defaults_count: u32,
-}
-
-#[account]
-pub struct Circle {
-    pub creator: Pubkey,
-    pub id: u64,
-    pub mint: Pubkey,
-    pub vault: Pubkey,
-    pub contribution_amount: u64,
-    pub security_deposit: u64,
-    pub max_members: u8,
-    pub current_members: u8,
-    pub current_round: u8,
-    pub round_duration: i64,
-    pub round_deadline: i64,
-    pub status: u8, 
-    pub vault_bump: u8,
-    pub round_payments_count: u8,
-}
-
-#[account]
-pub struct CircleMember {
-    pub user: Pubkey,
-    pub payout_order: u8,
-    pub deposit_locked: u64,
-    pub paid_rounds: u8,
-    pub received_payout: bool,
-    pub defaulted: bool,
-}
-
-// ---------------------------------------------------------
-// ENUMS & ERRORS
-// ---------------------------------------------------------
-
-pub enum CircleStatus {
-    Open = 0,
-    Active = 1,
-    Completed = 2,
-}
-
-#[error_code]
-pub enum GameyaError {
-    #[msg("Circle needs at least 2 members.")]
-    TooFewMembers,
-    #[msg("Invalid contribution amount.")]
-    InvalidAmount,
-    #[msg("Circle is not open for new members.")]
-    NotOpen,
-    #[msg("Circle is already full.")]
-    CircleFull,
-    #[msg("Circle is not active yet.")]
-    NotActive,
-    #[msg("You have already paid for this round.")]
-    AlreadyPaid,
-    #[msg("The deadline for this round has passed.")]
-    DeadlinePassed,
-    #[msg("It is not your turn to claim the payout.")]
-    NotYourTurn,
-    #[msg("Waiting for all members to pay before payout.")]
-    WaitingForPayments,
-    #[msg("You have already claimed your payout.")]
-    AlreadyClaimed,
-    #[msg("Circle is not completed yet.")]
-    NotCompleted,
-    #[msg("You don't have any deposit to withdraw.")]
-    NoDeposit,
-}
-#[program]
-pub mod gameya_fi_rust {
-    use super::*;
-
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
-    }
 }
