@@ -1,0 +1,3 @@
+    Finished `release` profile [optimized] target(s) in 0.69s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (/69fee269be9241901c1cfc5e/contracts/target/debug/deps/workspace-51ba4ba41e55366b)
